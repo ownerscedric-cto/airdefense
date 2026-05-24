@@ -1,0 +1,36 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light dark;
+  --cat-prep: #888780;
+  --cat-measure: #7f77dd;
+  --cat-heat: #d85a30;
+  --cat-wet: #1d9e75;
+  --cat-wait: #ba7517;
+  --cat-vent: #378add;
+  --cat-finish: #888780;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* 모바일에서 입력 시 줌 방지 */
+input, select, textarea {
+  font-size: 16px;
+}
+
+/* 스크롤바 (데스크톱) */
+@media (pointer: fine) {
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: rgba(120,120,120,.35); border-radius: 6px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(120,120,120,.55); }
+}

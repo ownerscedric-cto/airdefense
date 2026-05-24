@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <rect width="64" height="64" fill="#0b0b0c"/>
+  <rect x="0" y="0" width="64" height="64" rx="14.08" ry="14.08" fill="#0b0b0c"/>
+  <circle cx="32" cy="32" r="26.88" fill="#1d9e75" opacity="0.18"/>
+  <text x="50%" y="52%" text-anchor="middle" dominant-baseline="middle"
+        font-family="-apple-system, system-ui, 'Apple SD Gothic Neo', sans-serif"
+        font-weight="800" font-size="35" fill="#ffffff">공</text>
+</svg>
