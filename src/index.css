@@ -34,3 +34,13 @@ input, select, textarea {
   ::-webkit-scrollbar-thumb { background: rgba(120,120,120,.35); border-radius: 6px; }
   ::-webkit-scrollbar-thumb:hover { background: rgba(120,120,120,.55); }
 }
+
+/* 하단 고정 탭바에 가려지지 않도록 main 패딩 — 모바일은 탭 높이 + safe-area, 데스크탑은 작게 */
+.main-content {
+  padding-bottom: calc(6rem + env(safe-area-inset-bottom, 0px));
+}
+@media (min-width: 768px) {
+  .main-content {
+    padding-bottom: 1.5rem;
+  }
+}

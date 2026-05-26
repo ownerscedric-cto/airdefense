@@ -22,7 +22,7 @@ interface Props {
 export function TabNav({ current, onChange, disabled = {} }: Props) {
   return (
     <nav
-      className="sticky bottom-0 left-0 right-0 z-30 flex border-t border-neutral-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80 dark:border-neutral-800 dark:bg-neutral-950/95 md:relative md:bottom-auto md:border-t-0 md:border-b"
+      className="fixed bottom-0 left-0 right-0 z-30 flex border-t border-neutral-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80 dark:border-neutral-800 dark:bg-neutral-950/95 md:relative md:bottom-auto md:border-t-0 md:border-b"
       style={{ paddingBottom: "max(env(safe-area-inset-bottom), 0px)" }}
     >
       <div className="mx-auto flex w-full max-w-3xl">

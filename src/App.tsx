@@ -26,7 +26,7 @@ function Shell() {
             : "선택된 작업 없음"
         }
       />
-      <main className="mx-auto w-full max-w-3xl flex-1 px-4 pb-24 pt-3 md:pb-6">
+      <main className="main-content mx-auto w-full max-w-3xl flex-1 px-4 pt-3">
         {tab === "jobs" && <JobsTab onAfterCreate={() => setTab("timeline")} />}
         {tab === "timeline" &&
           (hasJob ? <TimelineTab /> : <EmptyHint onGo={() => setTab("jobs")} />)}
