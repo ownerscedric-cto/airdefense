@@ -240,7 +240,7 @@ export const DEFAULT_SITE_STAGES: TplStage[] = [
     detail: "자연환기 30분 이상 유지하며 가구·감지기 원상복구.",
     substeps: [
       sub("자연환기 30분 이상"),
-      sub("수납장 받쳤던 페트병·문받침대 회수"),
+      sub("수납장 받쳤던 페트병 회수 (문받침대는 그대로 두기)"),
       sub("가구 원상복구"),
       sub("화재감지기 재설치"),
     ],
