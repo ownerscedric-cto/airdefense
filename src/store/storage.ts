@@ -62,15 +62,11 @@ export function loadState(): AppState {
     if (rawV2) {
       const parsed = JSON.parse(rawV2) as Partial<AppState>;
       if (parsed && parsed.schemaVersion === 2) {
-        const templates = parsed.templates ?? [];
-        // Ensure builtin templates always present (in case user-edited storage)
-        const hasClient = templates.some((t) => t.id === "builtin-client-default");
-        const hasSite = templates.some((t) => t.id === "builtin-site-default");
-        const merged = [
-          ...(hasClient ? [] : [BUILTIN_TEMPLATES[0]]),
-          ...(hasSite ? [] : [BUILTIN_TEMPLATES[1]]),
-          ...templates,
-        ];
+        const userTemplates = (parsed.templates ?? []).filter(
+          (t) => t.id !== "builtin-client-default" && t.id !== "builtin-site-default"
+        );
+        // builtin 템플릿은 항상 최신 seed로 동기화 (이전 동선이 localStorage에 남아있어도 덮어씀)
+        const merged = [...BUILTIN_TEMPLATES, ...userTemplates];
         return {
           schemaVersion: 2,
           jobs: parsed.jobs ?? [],
