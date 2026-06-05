@@ -50,6 +50,7 @@ export function ImportExport() {
           jobs: parsed.jobs,
           currentJobId: parsed.currentJobId ?? parsed.jobs[0]?.id ?? null,
           templates: parsed.templates ?? [],
+          defaultAttachments: parsed.defaultAttachments ?? {},
         },
       });
       show("가져오기 완료");

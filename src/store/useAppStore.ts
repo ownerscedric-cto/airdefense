@@ -45,6 +45,8 @@ type Action =
           | "siteStages"
           | "vars"
           | "checklist"
+          | "messageAttachments"
+          | "messageOverrides"
           | "createdAt"
         >;
         clientTemplateId: string | null;
@@ -163,7 +165,13 @@ type Action =
       row: string;
       col: string;
       value: string;
-    };
+    }
+  | { type: "ATTACHMENT_ADD"; jobId: string; messageKey: string; assetId: string }
+  | { type: "ATTACHMENT_REMOVE"; jobId: string; messageKey: string; assetId: string }
+  | { type: "DEFAULT_ATTACHMENT_ADD"; messageKey: string; assetId: string }
+  | { type: "DEFAULT_ATTACHMENT_REMOVE"; messageKey: string; assetId: string }
+  | { type: "MESSAGE_OVERRIDE_SET"; jobId: string; messageKey: string; text: string }
+  | { type: "MESSAGE_OVERRIDE_CLEAR"; jobId: string; messageKey: string };
 
 function updateJob(
   state: AppState,
@@ -222,6 +230,10 @@ function reducer(state: AppState, action: Action): AppState {
         state.templates.find(
           (t) => t.mode === "site" && t.id === action.data.siteTemplateId
         ) ?? DEFAULT_SITE_TEMPLATE;
+      const seededAttachments: Record<string, string[]> = {};
+      for (const [k, ids] of Object.entries(state.defaultAttachments ?? {})) {
+        if (ids.length > 0) seededAttachments[k] = [...ids];
+      }
       const job: Job = {
         id: uid("job"),
         ...action.data.meta,
@@ -229,6 +241,8 @@ function reducer(state: AppState, action: Action): AppState {
         siteStages: stagesFromTemplate(siteTpl),
         vars: { ...DEFAULT_VARS, 담당자명: action.data.meta.staff || "" },
         checklist: makeEmptyChecklist(),
+        messageAttachments: seededAttachments,
+        messageOverrides: {},
         createdAt: Date.now(),
       };
       return { ...state, jobs: [job, ...state.jobs], currentJobId: job.id };
@@ -537,6 +551,66 @@ function reducer(state: AppState, action: Action): AppState {
             measureCells: { ...j.checklist.measureCells, [phase]: phaseObj },
           },
         };
+      });
+
+    case "ATTACHMENT_ADD":
+      return updateJob(state, action.jobId, (j) => {
+        const cur = j.messageAttachments[action.messageKey] ?? [];
+        if (cur.includes(action.assetId)) return j;
+        return {
+          ...j,
+          messageAttachments: {
+            ...j.messageAttachments,
+            [action.messageKey]: [...cur, action.assetId],
+          },
+        };
+      });
+
+    case "ATTACHMENT_REMOVE":
+      return updateJob(state, action.jobId, (j) => {
+        const cur = j.messageAttachments[action.messageKey] ?? [];
+        const next = cur.filter((id) => id !== action.assetId);
+        const map = { ...j.messageAttachments };
+        if (next.length === 0) delete map[action.messageKey];
+        else map[action.messageKey] = next;
+        return { ...j, messageAttachments: map };
+      });
+
+    case "DEFAULT_ATTACHMENT_ADD": {
+      const cur = state.defaultAttachments[action.messageKey] ?? [];
+      if (cur.includes(action.assetId)) return state;
+      return {
+        ...state,
+        defaultAttachments: {
+          ...state.defaultAttachments,
+          [action.messageKey]: [...cur, action.assetId],
+        },
+      };
+    }
+
+    case "DEFAULT_ATTACHMENT_REMOVE": {
+      const cur = state.defaultAttachments[action.messageKey] ?? [];
+      const next = cur.filter((id) => id !== action.assetId);
+      const map = { ...state.defaultAttachments };
+      if (next.length === 0) delete map[action.messageKey];
+      else map[action.messageKey] = next;
+      return { ...state, defaultAttachments: map };
+    }
+
+    case "MESSAGE_OVERRIDE_SET":
+      return updateJob(state, action.jobId, (j) => ({
+        ...j,
+        messageOverrides: {
+          ...j.messageOverrides,
+          [action.messageKey]: action.text,
+        },
+      }));
+
+    case "MESSAGE_OVERRIDE_CLEAR":
+      return updateJob(state, action.jobId, (j) => {
+        const map = { ...j.messageOverrides };
+        delete map[action.messageKey];
+        return { ...j, messageOverrides: map };
       });
 
     default:

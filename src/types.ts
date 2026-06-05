@@ -91,6 +91,8 @@ export interface Job {
   siteStages: Stage[];
   vars: MessageVars;
   checklist: ChecklistState;
+  messageAttachments: Record<string, string[]>;
+  messageOverrides: Record<string, string>;
   createdAt: number;
 }
 
@@ -99,7 +101,8 @@ export interface AppState {
   jobs: Job[];
   currentJobId: string | null;
   templates: TimelineTemplate[];
+  defaultAttachments: Record<string, string[]>;
 }
 
-export type TabKey = "jobs" | "timeline" | "messages" | "checklist";
+export type TabKey = "jobs" | "timeline" | "messages" | "checklist" | "assets";
 export type TimelineMode = TemplateMode;

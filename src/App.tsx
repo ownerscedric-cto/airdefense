@@ -7,6 +7,7 @@ import { JobsTab } from "./features/jobs/JobsTab";
 import { TimelineTab } from "./features/timeline/TimelineTab";
 import { MessagesTab } from "./features/messages/MessagesTab";
 import { ChecklistTab } from "./features/checklist/ChecklistTab";
+import { AssetsTab } from "./features/assets/AssetsTab";
 
 function Shell() {
   const [tab, setTab] = useState<TabKey>("jobs");
@@ -34,6 +35,7 @@ function Shell() {
           (hasJob ? <MessagesTab /> : <EmptyHint onGo={() => setTab("jobs")} />)}
         {tab === "checklist" &&
           (hasJob ? <ChecklistTab /> : <EmptyHint onGo={() => setTab("jobs")} />)}
+        {tab === "assets" && <AssetsTab />}
       </main>
       <TabNav current={tab} onChange={setTab} disabled={disabled} />
     </div>

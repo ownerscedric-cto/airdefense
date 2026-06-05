@@ -11,6 +11,7 @@ const TABS: Tab[] = [
   { key: "timeline", label: "타임라인", icon: "⏱" },
   { key: "messages", label: "멘트", icon: "💬" },
   { key: "checklist", label: "체크", icon: "✅" },
+  { key: "assets", label: "이미지", icon: "🖼" },
 ];
 
 interface Props {

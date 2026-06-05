@@ -36,6 +36,8 @@ function migrateV1toV2(v1: AppStateV1): AppState {
     ...j,
     clientStages: j.stages.map((s) => ({ ...s, substeps: [] })),
     siteStages: [],
+    messageAttachments: {},
+    messageOverrides: {},
   }));
   return {
     schemaVersion: 2,
@@ -53,6 +55,7 @@ function migrateV1toV2(v1: AppStateV1): AppState {
           createdAt: t.createdAt,
         })),
     ],
+    defaultAttachments: {},
   };
 }
 
@@ -67,11 +70,17 @@ export function loadState(): AppState {
         );
         // builtin 템플릿은 항상 최신 seed로 동기화 (이전 동선이 localStorage에 남아있어도 덮어씀)
         const merged = [...BUILTIN_TEMPLATES, ...userTemplates];
+        const jobs = (parsed.jobs ?? []).map((j) => ({
+          ...j,
+          messageAttachments: j.messageAttachments ?? {},
+          messageOverrides: j.messageOverrides ?? {},
+        }));
         return {
           schemaVersion: 2,
-          jobs: parsed.jobs ?? [],
+          jobs,
           currentJobId: parsed.currentJobId ?? null,
           templates: merged,
+          defaultAttachments: parsed.defaultAttachments ?? {},
         };
       }
     }
@@ -104,5 +113,6 @@ export function initialState(): AppState {
     jobs: [],
     currentJobId: null,
     templates: [...BUILTIN_TEMPLATES],
+    defaultAttachments: {},
   };
 }
