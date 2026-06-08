@@ -104,5 +104,13 @@ export interface AppState {
   defaultAttachments: Record<string, string[]>;
 }
 
-export type TabKey = "jobs" | "timeline" | "messages" | "checklist" | "assets";
+export type TabKey =
+  | "events"
+  | "chat"
+  | "jobs"
+  | "timeline"
+  | "messages"
+  | "checklist"
+  | "assets"
+  | "users";
 export type TimelineMode = TemplateMode;

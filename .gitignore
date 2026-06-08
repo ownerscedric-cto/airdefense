@@ -9,3 +9,8 @@ dist-ssr
 .idea
 *.local
 *.code-workspace
+
+# env files
+.env
+.env.*
+!.env.example
