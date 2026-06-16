@@ -66,7 +66,10 @@ export function loadState(): AppState {
       const parsed = JSON.parse(rawV2) as Partial<AppState>;
       if (parsed && parsed.schemaVersion === 2) {
         const userTemplates = (parsed.templates ?? []).filter(
-          (t) => t.id !== "builtin-client-default" && t.id !== "builtin-site-default"
+          (t) =>
+            t.id !== "builtin-client-default" &&
+            t.id !== "builtin-site-default" &&
+            t.id !== "builtin-site-34py"
         );
         // builtin 템플릿은 항상 최신 seed로 동기화 (이전 동선이 localStorage에 남아있어도 덮어씀)
         const merged = [...BUILTIN_TEMPLATES, ...userTemplates];

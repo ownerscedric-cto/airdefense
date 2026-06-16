@@ -28,17 +28,23 @@ where not exists (
 -- =====================================================================
 -- ★★★ 첫 admin 부트스트랩 ★★★
 --
--- Google OAuth 로 로그인하면 auth.users + profiles 행이 자동 생성된다 (role='pending').
--- 본인 로그인 후, 본인 이메일을 아래에 넣어 한 번만 실행하면 admin 으로 승격된다.
+-- 0002_functions.sql / 0003_rls.sql 의 fn_protect_profile_fields 트리거가
+-- "본인이 admin 이 아니면 role 변경 금지" 를 강제한다.
+-- 따라서 첫 admin 은 닭과 달걀 문제 → 트리거를 일시 우회해서 승격해야 한다.
 --
--- 사용 예:
---   update public.profiles
---     set role = 'admin', active = true
---     where email = 'geese3433@gmail.com';
---
+-- 절차:
+--   1) Google OAuth 로 한 번 로그인 → profiles 행 자동 생성 (role='pending')
+--   2) 본인 이메일을 아래에 적고 블록 전체를 SQL Editor 에서 실행
+--   3) 이후엔 트리거가 정상 동작 → admin 이 된 본인이 다른 사용자를 관리
 -- =====================================================================
 
--- 본인 이메일을 안다면 미리 자동 승격되도록 아래 주석 해제 후 실행
--- update public.profiles
---   set role = 'admin', active = true
---   where email = 'geese3433@gmail.com';
+-- 본인 이메일을 적고 아래 블록 주석 해제 후 한 번만 실행
+-- do $$
+-- declare v_email text := 'geese3433@gmail.com';
+-- begin
+--   set local session_replication_role = replica;
+--   update public.profiles
+--     set role = 'admin', active = true
+--     where email = v_email;
+--   set local session_replication_role = default;
+-- end $$;
