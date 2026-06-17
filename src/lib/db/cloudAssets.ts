@@ -71,7 +71,9 @@ export async function uploadCloudAsset(input: UploadCloudAssetInput): Promise<Cl
   const thumb = await makeThumbnail(input.file);
 
   // 2) Storage 업로드
-  const ext = (input.file.name.split(".").pop() || "").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+  const nameExt = (input.file.name.split(".").pop() || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const isVideo = (input.file.type || "").startsWith("video/");
+  const ext = nameExt || (isVideo ? "mp4" : "jpg");
   const storagePath = `${input.kind}/${crypto.randomUUID()}.${ext}`;
   const { error: upErr } = await supabase.storage.from(BUCKET).upload(storagePath, input.file, {
     contentType: input.file.type || "image/jpeg",
@@ -80,7 +82,9 @@ export async function uploadCloudAsset(input: UploadCloudAssetInput): Promise<Cl
   if (upErr) throw new Error(`업로드 실패: ${upErr.message}`);
 
   // 3) 메타데이터 INSERT
-  const dims = await readImageDimensions(input.file).catch(() => ({ width: null, height: null }));
+  const dims = isVideo
+    ? await readVideoDimensions(input.file).catch(() => ({ width: null, height: null }))
+    : await readImageDimensions(input.file).catch(() => ({ width: null, height: null }));
   const row = {
     kind: input.kind,
     name: input.name.trim() || "이름 없음",
@@ -149,10 +153,28 @@ export async function getSignedUrl(storagePath: string): Promise<string> {
 export async function downloadCloudAssetAsFile(row: CloudAssetRow): Promise<File> {
   const { data, error } = await supabase.storage.from(BUCKET).download(row.storage_path);
   if (error) throw error;
-  const mime = row.mime_type || "image/jpeg";
-  const ext = mime.split("/")[1] || "jpg";
-  const safeName = (row.name || "image").replace(/[\\/:*?"<>|]/g, "_");
+  const mime = row.mime_type || guessMimeFromPath(row.storage_path) || "image/jpeg";
+  const isVideo = mime.startsWith("video/");
+  const ext = mime.split("/")[1] || (isVideo ? "mp4" : "jpg");
+  const safeName = (row.name || (isVideo ? "video" : "image")).replace(/[\\/:*?"<>|]/g, "_");
   return new File([data], `${safeName}.${ext}`, { type: mime });
+}
+
+function guessMimeFromPath(path: string): string | null {
+  const ext = (path.split(".").pop() || "").toLowerCase();
+  const map: Record<string, string> = {
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    png: "image/png",
+    webp: "image/webp",
+    gif: "image/gif",
+    heic: "image/heic",
+    heif: "image/heif",
+    mp4: "video/mp4",
+    mov: "video/quicktime",
+    webm: "video/webm",
+  };
+  return map[ext] ?? null;
 }
 
 // ===== 헬퍼 =====
@@ -169,5 +191,25 @@ function readImageDimensions(file: File): Promise<{ width: number; height: numbe
       reject(new Error("이미지 디코딩 실패"));
     };
     img.src = url;
+  });
+}
+
+function readVideoDimensions(file: File): Promise<{ width: number; height: number }> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const v = document.createElement("video");
+    v.preload = "metadata";
+    v.muted = true;
+    v.onloadedmetadata = () => {
+      const w = v.videoWidth;
+      const h = v.videoHeight;
+      URL.revokeObjectURL(url);
+      resolve({ width: w, height: h });
+    };
+    v.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("동영상 메타데이터 로드 실패"));
+    };
+    v.src = url;
   });
 }

@@ -35,6 +35,7 @@ export interface AnyAsset {
   name: string;
   tags: string[];
   thumbDataUrl: string;
+  isVideo: boolean;
   jobId?: string | null;      // local 전용
   eventId?: string | null;    // cloud 전용
   createdAt: number;
@@ -69,6 +70,7 @@ function fromLocal(l: LocalAsset): AnyAsset {
     name: l.name,
     tags: l.tags,
     thumbDataUrl: l.thumbDataUrl,
+    isVideo: (l.blob.type || "").startsWith("video/"),
     jobId: l.jobId ?? null,
     createdAt: l.createdAt,
     _local: l,
@@ -84,6 +86,7 @@ function fromCloud(c: CloudAssetRow): AnyAsset {
     name: c.name,
     tags: c.tags,
     thumbDataUrl: c.thumb_data_url ?? "",
+    isVideo: (c.mime_type || "").startsWith("video/"),
     eventId: c.event_id,
     createdAt: new Date(c.created_at).getTime(),
     _cloud: c,

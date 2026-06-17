@@ -1,7 +1,7 @@
 -- =====================================================================
--- 0006_cloud_assets.sql — 클라우드 자산 (이미지)
+-- 0006_cloud_assets.sql — 클라우드 자산 (이미지·동영상)
 --
--- 모든 팀원이 공유하는 공통 이미지 라이브러리. Supabase Storage 사용.
+-- 모든 팀원이 공유하는 공통 자산 라이브러리. Supabase Storage 사용.
 --
 -- 흐름:
 --   1) 클라이언트에서 이미지 선택
@@ -89,8 +89,13 @@ values (
   'assets',
   'assets',
   false,                                            -- private (signed URL 로 접근)
-  10485760,                                         -- 10 MB
-  array['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+  104857600,                                        -- 100 MB
+  array[
+    -- 이미지
+    'image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/heic', 'image/heif',
+    -- 동영상
+    'video/mp4', 'video/quicktime', 'video/webm'
+  ]
 )
 on conflict (id) do nothing;
 

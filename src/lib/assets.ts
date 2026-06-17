@@ -18,6 +18,10 @@ const THUMB_MAX_WIDTH = 320;
 const THUMB_QUALITY = 0.72;
 
 export async function makeThumbnail(file: Blob): Promise<string> {
+  // 동영상이면 첫 프레임을 캡처
+  if ((file.type || "").startsWith("video/")) {
+    return makeVideoThumbnail(file);
+  }
   // iOS Safari의 HEIC 등은 createImageBitmap이 실패하므로 HTMLImageElement 경로를 우선 사용
   const img = await loadHTMLImage(file);
   const srcW = img.naturalWidth || 1;
@@ -34,6 +38,61 @@ export async function makeThumbnail(file: Blob): Promise<string> {
   ctx.drawImage(img, 0, 0, w, h);
   if (img.src.startsWith("blob:")) URL.revokeObjectURL(img.src);
   return canvas.toDataURL("image/jpeg", THUMB_QUALITY);
+}
+
+/** 동영상의 첫 프레임(0.1s 시점)을 캡처해서 JPEG dataURL 로. */
+async function makeVideoThumbnail(file: Blob): Promise<string> {
+  const url = URL.createObjectURL(file);
+  const video = document.createElement("video");
+  video.preload = "metadata";
+  video.muted = true;
+  video.playsInline = true;
+  video.src = url;
+
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const onLoaded = () => {
+        cleanup();
+        resolve();
+      };
+      const onError = () => {
+        cleanup();
+        reject(new Error("동영상 메타데이터 로드 실패"));
+      };
+      const cleanup = () => {
+        video.removeEventListener("loadeddata", onLoaded);
+        video.removeEventListener("error", onError);
+      };
+      video.addEventListener("loadeddata", onLoaded, { once: true });
+      video.addEventListener("error", onError, { once: true });
+    });
+
+    // 0.1s 지점으로 seek (시작 프레임이 검은 경우 회피)
+    await new Promise<void>((resolve) => {
+      const onSeeked = () => resolve();
+      video.addEventListener("seeked", onSeeked, { once: true });
+      try {
+        video.currentTime = Math.min(0.1, video.duration || 0);
+      } catch {
+        resolve();
+      }
+    });
+
+    const srcW = video.videoWidth || 1;
+    const srcH = video.videoHeight || 1;
+    const ratio = Math.min(1, THUMB_MAX_WIDTH / srcW);
+    const w = Math.max(1, Math.round(srcW * ratio));
+    const h = Math.max(1, Math.round(srcH * ratio));
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Canvas 컨텍스트 없음");
+    ctx.drawImage(video, 0, 0, w, h);
+    return canvas.toDataURL("image/jpeg", THUMB_QUALITY);
+  } finally {
+    URL.revokeObjectURL(url);
+  }
 }
 
 function loadHTMLImage(file: Blob): Promise<HTMLImageElement> {
@@ -112,21 +171,31 @@ const SHAREABLE_MIME = new Set([
   "image/png",
   "image/webp",
   "image/gif",
+  "video/mp4",
+  "video/quicktime",
+  "video/webm",
 ]);
 
 const NAME_SANITIZE_RE = /[\\/:*?"<>|]/g;
 
 export async function assetToFile(asset: Asset): Promise<File> {
-  const safeName = asset.name.replace(NAME_SANITIZE_RE, "_") || "image";
+  const safeName = asset.name.replace(NAME_SANITIZE_RE, "_") || "asset";
   const rawMime = asset.blob.type || "";
+  const isVideo = rawMime.startsWith("video/");
 
-  // 공유 가능한 표준 이미지 MIME 이면 그대로
+  // 공유 가능한 표준 MIME(이미지/영상) 이면 그대로
   if (SHAREABLE_MIME.has(rawMime)) {
-    const ext = rawMime.split("/")[1] || "jpg";
+    const ext = rawMime.split("/")[1] || (isVideo ? "mp4" : "jpg");
     return new File([asset.blob], `${safeName}.${ext}`, { type: rawMime });
   }
 
-  // HEIC/HEIF/빈 MIME 등은 JPEG 로 재인코딩 시도
+  // 영상이지만 비표준 MIME 이면 그대로 (Canvas 재인코딩 불가)
+  if (isVideo) {
+    const ext = rawMime.split("/")[1] || "mp4";
+    return new File([asset.blob], `${safeName}.${ext}`, { type: rawMime || "video/mp4" });
+  }
+
+  // HEIC/HEIF/빈 MIME 이미지는 JPEG 로 재인코딩 시도
   try {
     const jpegBlob = await reencodeAsJpeg(asset.blob);
     return new File([jpegBlob], `${safeName}.jpg`, { type: "image/jpeg" });

@@ -58,8 +58,8 @@ export function AssetsTab() {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      show("이미지 파일만 등록 가능");
+    if (!file.type.startsWith("image/") && !file.type.startsWith("video/")) {
+      show("이미지 또는 동영상만 등록 가능");
       return;
     }
     setPendingFile(file);
@@ -170,7 +170,7 @@ export function AssetsTab() {
         <input
           ref={fileInput}
           type="file"
-          accept="image/*"
+          accept="image/*,video/*"
           className="hidden"
           onChange={onPick}
         />
@@ -195,8 +195,7 @@ export function AssetsTab() {
       </div>
 
       <p className="px-1 text-[11px] text-neutral-500 dark:text-neutral-400">
-        ☁ 공유: 모든 팀원이 함께 사용 (Supabase). 💾 내 기기: 본인 브라우저에만 저장.
-        공통 이미지는 ☁ 공유로 올리는 걸 권장해요.
+        이미지·동영상 모두 등록 가능 (최대 100MB). ☁ 공유는 모든 팀원이 함께 사용 / 💾 내 기기는 본인 브라우저만.
       </p>
 
       {error && (
@@ -423,7 +422,7 @@ function AssetCard({ asset, canMigrate, onRename, onDelete, onToggleKind, onMigr
             />
           ) : (
             <div className="flex h-full w-full items-center justify-center text-3xl text-neutral-300">
-              🖼
+              {asset.isVideo ? "🎬" : "🖼"}
             </div>
           )}
           <span
@@ -436,6 +435,11 @@ function AssetCard({ asset, canMigrate, onRename, onDelete, onToggleKind, onMigr
           >
             {asset.source === "cloud" ? "☁ 공유" : "💾 내 기기"}
           </span>
+          {asset.isVideo && (
+            <span className="absolute right-1 top-1 inline-flex items-center gap-0.5 rounded bg-black/60 px-1 py-0.5 text-[9px] font-bold text-white">
+              ▶ 영상
+            </span>
+          )}
         </div>
         <div className="flex items-center justify-between gap-1 p-2">
           <span className="truncate text-xs font-medium">{asset.name}</span>

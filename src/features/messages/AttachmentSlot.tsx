@@ -105,7 +105,7 @@ export function AttachmentSlot({ messageKey, attachmentIds, onAttachmentsChange 
                 <img src={a.thumbDataUrl} alt={a.name} className="h-full w-full object-cover" />
               ) : (
                 <div className="flex h-full w-full items-center justify-center bg-neutral-100 text-lg text-neutral-400 dark:bg-neutral-800">
-                  🖼
+                  {a.isVideo ? "🎬" : "🖼"}
                 </div>
               )}
               <span
@@ -119,6 +119,11 @@ export function AttachmentSlot({ messageKey, attachmentIds, onAttachmentsChange 
               >
                 {a.source === "cloud" ? "☁" : "💾"}
               </span>
+              {a.isVideo && (
+                <span className="absolute bottom-0 right-0 rounded-tl-md bg-black/70 px-1 text-[8px] font-bold text-white">
+                  ▶
+                </span>
+              )}
               {isCommon && (
                 <button
                   type="button"

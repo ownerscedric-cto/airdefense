@@ -53,8 +53,8 @@ export function AssetPickerModal({ open, excludeIds = [], onClose, onPick }: Pro
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      show("이미지 파일만 등록 가능");
+    if (!file.type.startsWith("image/") && !file.type.startsWith("video/")) {
+      show("이미지 또는 동영상만 등록 가능");
       return;
     }
     setPendingFile(file);
@@ -135,7 +135,7 @@ export function AssetPickerModal({ open, excludeIds = [], onClose, onPick }: Pro
           <input
             ref={fileInput}
             type="file"
-            accept="image/*"
+            accept="image/*,video/*"
             className="hidden"
             onChange={onPick2}
           />
@@ -178,7 +178,7 @@ export function AssetPickerModal({ open, excludeIds = [], onClose, onPick }: Pro
                         />
                       ) : (
                         <div className="flex h-full w-full items-center justify-center text-2xl text-neutral-300">
-                          🖼
+                          {a.isVideo ? "🎬" : "🖼"}
                         </div>
                       )}
                       <span
@@ -191,6 +191,11 @@ export function AssetPickerModal({ open, excludeIds = [], onClose, onPick }: Pro
                       >
                         {a.source === "cloud" ? "☁" : "💾"}
                       </span>
+                      {a.isVideo && (
+                        <span className="absolute right-0.5 top-0.5 rounded bg-black/60 px-1 py-0.5 text-[8px] font-bold text-white">
+                          ▶
+                        </span>
+                      )}
                     </div>
                     <div className="flex items-center justify-between gap-1 p-1.5">
                       <span className="truncate text-[11px] font-medium">{a.name}</span>
