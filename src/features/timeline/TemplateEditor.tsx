@@ -5,6 +5,7 @@ import { useAppStore } from "../../store/useAppStore";
 import { displayStageTime } from "../../lib/timeOffset";
 import type { TimelineTemplate } from "../../types";
 import { StageEditor } from "./StageEditor";
+import { TemplateSubstepList } from "./TemplateSubstepList";
 
 interface Props {
   template: TimelineTemplate;
@@ -195,6 +196,7 @@ export function TemplateEditor({ template, onClose }: Props) {
               />
             ) : (
               <TemplateStageRow
+                templateId={current.id}
                 stage={s}
                 index={i}
                 isFirst={i === 0}
@@ -303,6 +305,7 @@ function InsertSlot({ active, onOpen, children }: InsertSlotProps) {
 }
 
 interface RowProps {
+  templateId: string;
   stage: TplStage;
   index: number;
   isFirst: boolean;
@@ -314,6 +317,7 @@ interface RowProps {
 }
 
 function TemplateStageRow({
+  templateId,
   stage,
   index,
   isFirst,
@@ -324,6 +328,10 @@ function TemplateStageRow({
   onMoveDown,
 }: RowProps) {
   const t = displayStageTime(stage);
+  const subCount = stage.substeps?.length ?? 0;
+  // 하위 동선이 이미 있으면 기본 펼침, 없으면 접힘
+  const [open, setOpen] = useState(subCount > 0);
+
   return (
     <div className="rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
       <div className="flex items-start gap-2">
@@ -340,10 +348,8 @@ function TemplateStageRow({
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-2">
             <CategoryTag category={stage.category} />
-            {stage.substeps.length > 0 && (
-              <span className="text-[11px] text-neutral-500">
-                하위 {stage.substeps.length}
-              </span>
+            {subCount > 0 && (
+              <span className="text-[11px] text-neutral-500">하위 {subCount}</span>
             )}
           </div>
           {stage.detail && (
@@ -353,6 +359,23 @@ function TemplateStageRow({
           )}
         </div>
       </div>
+
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-100"
+      >
+        {open ? "▾ 하위 동선 닫기" : `▸ 하위 동선 보기/추가${subCount > 0 ? ` (${subCount})` : ""}`}
+      </button>
+
+      {open && (
+        <TemplateSubstepList
+          templateId={templateId}
+          stageIndex={index}
+          substeps={stage.substeps ?? []}
+        />
+      )}
+
       <div className="mt-2 flex items-center justify-end gap-1">
         <IconBtn label="위로" disabled={isFirst} onClick={onMoveUp}>
           ▲

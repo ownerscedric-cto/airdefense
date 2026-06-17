@@ -200,6 +200,33 @@ type Action =
       templateId: string;
       index: number;
       dir: "up" | "down";
+    }
+  | {
+      type: "TEMPLATE_SUBSTEP_ADD";
+      templateId: string;
+      stageIndex: number;
+      text: string;
+      note?: string;
+    }
+  | {
+      type: "TEMPLATE_SUBSTEP_UPDATE";
+      templateId: string;
+      stageIndex: number;
+      subIndex: number;
+      patch: { text?: string; note?: string };
+    }
+  | {
+      type: "TEMPLATE_SUBSTEP_DELETE";
+      templateId: string;
+      stageIndex: number;
+      subIndex: number;
+    }
+  | {
+      type: "TEMPLATE_SUBSTEP_MOVE";
+      templateId: string;
+      stageIndex: number;
+      subIndex: number;
+      dir: "up" | "down";
     };
 
 function updateJob(
@@ -757,6 +784,79 @@ function reducer(state: AppState, action: Action): AppState {
           if (i < 0 || i >= next.length || j < 0 || j >= next.length) return t;
           [next[i], next[j]] = [next[j], next[i]];
           return { ...t, stages: next };
+        }),
+      };
+
+    case "TEMPLATE_SUBSTEP_ADD":
+      return {
+        ...state,
+        templates: state.templates.map((t) => {
+          if (t.id !== action.templateId || t.builtin) return t;
+          const stages = t.stages.slice();
+          const si = action.stageIndex;
+          if (si < 0 || si >= stages.length) return t;
+          const stage = stages[si];
+          const newSub = {
+            text: action.text.trim() || "(이름 없음)",
+            note: action.note ?? "",
+          };
+          stages[si] = { ...stage, substeps: [...(stage.substeps ?? []), newSub] };
+          return { ...t, stages };
+        }),
+      };
+
+    case "TEMPLATE_SUBSTEP_UPDATE":
+      return {
+        ...state,
+        templates: state.templates.map((t) => {
+          if (t.id !== action.templateId || t.builtin) return t;
+          const stages = t.stages.slice();
+          const si = action.stageIndex;
+          if (si < 0 || si >= stages.length) return t;
+          const stage = stages[si];
+          const subs = (stage.substeps ?? []).slice();
+          const ssi = action.subIndex;
+          if (ssi < 0 || ssi >= subs.length) return t;
+          subs[ssi] = { ...subs[ssi], ...action.patch };
+          stages[si] = { ...stage, substeps: subs };
+          return { ...t, stages };
+        }),
+      };
+
+    case "TEMPLATE_SUBSTEP_DELETE":
+      return {
+        ...state,
+        templates: state.templates.map((t) => {
+          if (t.id !== action.templateId || t.builtin) return t;
+          const stages = t.stages.slice();
+          const si = action.stageIndex;
+          if (si < 0 || si >= stages.length) return t;
+          const stage = stages[si];
+          const subs = (stage.substeps ?? []).slice();
+          const ssi = action.subIndex;
+          if (ssi < 0 || ssi >= subs.length) return t;
+          subs.splice(ssi, 1);
+          stages[si] = { ...stage, substeps: subs };
+          return { ...t, stages };
+        }),
+      };
+
+    case "TEMPLATE_SUBSTEP_MOVE":
+      return {
+        ...state,
+        templates: state.templates.map((t) => {
+          if (t.id !== action.templateId || t.builtin) return t;
+          const stages = t.stages.slice();
+          const si = action.stageIndex;
+          if (si < 0 || si >= stages.length) return t;
+          const stage = stages[si];
+          const subs = (stage.substeps ?? []).slice();
+          const i = action.subIndex;
+          const j = action.dir === "up" ? i - 1 : i + 1;
+          if (i < 0 || i >= subs.length || j < 0 || j >= subs.length) return t;
+          [subs[i], subs[j]] = [subs[j], subs[i]];
+          stages[si] = { ...stage, substeps: subs };
+          return { ...t, stages };
         }),
       };
 
