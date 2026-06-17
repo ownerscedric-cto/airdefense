@@ -34,7 +34,7 @@ export function AssetPickerModal({ open, excludeIds = [], onClose, onPick }: Pro
   const [pendingName, setPendingName] = useState("");
   const [pendingTarget, setPendingTarget] = useState<Target>("cloud");
 
-  const canUploadCloud = role === "admin" || role === "manager";
+  const canUploadCloud = role === "admin";
 
   const filtered = useMemo(() => {
     const ex = new Set(excludeIds);
@@ -287,6 +287,11 @@ export function AssetPickerModal({ open, excludeIds = [], onClose, onPick }: Pro
                       💾 내 기기만
                     </button>
                   </div>
+                  {!canUploadCloud && (
+                    <p className="mt-1.5 text-[11px] text-neutral-500">
+                      팀 공유 자산은 관리자만 업로드할 수 있어요.
+                    </p>
+                  )}
                 </fieldset>
               </div>
               <div className="mt-5 flex justify-end gap-2">

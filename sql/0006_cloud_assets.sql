@@ -51,16 +51,13 @@ create policy cloud_assets_select_approved on public.cloud_assets
     )
   );
 
--- admin, manager 가 INSERT
+-- admin 만 INSERT (manager/viewer 는 읽기만)
 drop policy if exists cloud_assets_insert on public.cloud_assets;
 create policy cloud_assets_insert on public.cloud_assets
   for insert
   with check (
     created_by = auth.uid()
-    and exists (
-      select 1 from public.profiles
-      where id = auth.uid() and role in ('admin', 'manager')
-    )
+    and public.fn_is_admin()
   );
 
 -- 본인 자산만 UPDATE (이름·태그 변경) + admin 전체
@@ -112,15 +109,14 @@ create policy "assets_read_approved" on storage.objects
     )
   );
 
+-- admin 만 업로드. manager/viewer 는 읽기만.
 drop policy if exists "assets_insert_admin_manager" on storage.objects;
-create policy "assets_insert_admin_manager" on storage.objects
+drop policy if exists "assets_insert_admin" on storage.objects;
+create policy "assets_insert_admin" on storage.objects
   for insert
   with check (
     bucket_id = 'assets'
-    and exists (
-      select 1 from public.profiles
-      where id = auth.uid() and role in ('admin', 'manager')
-    )
+    and public.fn_is_admin()
   );
 
 drop policy if exists "assets_update_own_or_admin" on storage.objects;

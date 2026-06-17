@@ -14,6 +14,7 @@ Supabase 데이터베이스 스키마 / 함수 / 정책 정의.
    - 추가 셋업은 `supabase/functions/README.md` 참고
 6. `0006_cloud_assets.sql` — 클라우드 자산 (이미지·동영상) + Storage 'assets' bucket (100MB)
 7. `0007_assets_bucket_video.sql` — 0006 을 이미 실행한 환경에서 한도 100MB / 동영상 MIME 허용으로 업데이트
+8. `0008_assets_admin_only_upload.sql` — 클라우드 자산 업로드를 admin 으로만 제한 (manager/viewer 는 읽기·첨부만)
 
 각 파일은 **idempotent**(여러 번 실행해도 같은 결과) 하게 작성되어 있다 — `IF NOT EXISTS` / `DROP ... IF EXISTS` 사용. 그래서 스키마 수정 시 해당 파일만 다시 실행하면 된다.
 

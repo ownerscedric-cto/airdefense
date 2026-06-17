@@ -40,7 +40,7 @@ export function AssetsTab() {
   const [confirmDelete, setConfirmDelete] = useState<AnyAsset | null>(null);
   const [renaming, setRenaming] = useState<{ id: string; value: string } | null>(null);
 
-  const canUploadCloud = approved && (role === "admin" || role === "manager");
+  const canUploadCloud = approved && role === "admin";
 
   const filtered = useMemo(() => {
     return assets.filter((a) => {
@@ -305,7 +305,7 @@ export function AssetsTab() {
                 </div>
                 {!canUploadCloud && (
                   <p className="mt-1.5 text-[11px] text-neutral-500">
-                    팀 공유는 관리자/팀장만 업로드 가능.
+                    팀 공유 자산은 관리자만 업로드할 수 있어요.
                   </p>
                 )}
               </fieldset>
