@@ -182,6 +182,12 @@ type Action =
       stage: TimelineTemplate["stages"][number];
     }
   | {
+      type: "TEMPLATE_STAGE_INSERT";
+      templateId: string;
+      index: number; // 이 위치에 새 단계를 끼워 넣음 (0 = 맨 위)
+      stage: TimelineTemplate["stages"][number];
+    }
+  | {
       type: "TEMPLATE_STAGE_UPDATE";
       templateId: string;
       index: number;
@@ -681,6 +687,18 @@ function reducer(state: AppState, action: Action): AppState {
             ? { ...t, stages: [...t.stages, action.stage] }
             : t
         ),
+      };
+
+    case "TEMPLATE_STAGE_INSERT":
+      return {
+        ...state,
+        templates: state.templates.map((t) => {
+          if (t.id !== action.templateId || t.builtin) return t;
+          const clamped = Math.max(0, Math.min(action.index, t.stages.length));
+          const next = t.stages.slice();
+          next.splice(clamped, 0, action.stage);
+          return { ...t, stages: next };
+        }),
       };
 
     case "TEMPLATE_STAGE_UPDATE":

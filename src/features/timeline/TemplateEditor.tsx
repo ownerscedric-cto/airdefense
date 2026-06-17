@@ -25,7 +25,8 @@ const EMPTY_STAGE: TplStage = {
 export function TemplateEditor({ template, onClose }: Props) {
   const { state, dispatch } = useAppStore();
   const { show } = useToast();
-  const [adding, setAdding] = useState(false);
+  // 단계 추가용: 끼워 넣을 위치 (index = 0 → 맨 위 / N → N번 단계 바로 아래 / stages.length → 맨 아래)
+  const [insertAt, setInsertAt] = useState<number | null>(null);
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
   const [renameOpen, setRenameOpen] = useState(false);
   const [newName, setNewName] = useState(template.name);
@@ -53,13 +54,14 @@ export function TemplateEditor({ template, onClose }: Props) {
     );
   }
 
-  function onAdd(stage: Omit<TplStage, "substeps">) {
+  function onInsert(index: number, stage: Omit<TplStage, "substeps">) {
     dispatch({
-      type: "TEMPLATE_STAGE_ADD",
+      type: "TEMPLATE_STAGE_INSERT",
       templateId: current.id,
+      index,
       stage: { ...stage, substeps: [] },
     });
-    setAdding(false);
+    setInsertAt(null);
     show("단계 추가됨");
   }
 
@@ -95,6 +97,20 @@ export function TemplateEditor({ template, onClose }: Props) {
     show("이름 변경됨");
   }
 
+  // 새 단계의 기본 offsetMinutes 추정: 이전 단계 값 + 30분, 또는 0
+  function defaultOffsetForInsert(index: number): number {
+    const prev = current.stages[index - 1];
+    if (prev?.offsetMinutes != null) return prev.offsetMinutes + 30;
+    return 0;
+  }
+
+  function defaultCategoryForInsert(index: number): TplStage["category"] {
+    // 인접 단계의 카테고리를 그대로 따라감
+    const prev = current.stages[index - 1];
+    const next = current.stages[index];
+    return prev?.category ?? next?.category ?? "준비";
+  }
+
   return (
     <div className="space-y-3">
       <header className="flex items-center justify-between gap-2">
@@ -126,69 +142,97 @@ export function TemplateEditor({ template, onClose }: Props) {
       </header>
 
       <p className="rounded-lg bg-neutral-50 px-3 py-2 text-[11px] text-neutral-600 dark:bg-neutral-900/60 dark:text-neutral-300">
-        💡 시각은 <strong>시공 시작(00:00)</strong> 기준 누적 시간으로 입력합니다. 작업에 적용 시
-        실제 시작 시각과 합쳐서 절대 시각으로 표시됩니다.
+        💡 시각은 <strong>시공 시작(00:00)</strong> 기준 누적 시간으로 입력합니다. 단계 사이의 <strong>+</strong> 버튼으로
+        원하는 위치에 바로 끼워 넣을 수 있어요.
       </p>
 
-      <section className="space-y-2">
-        {current.stages.length === 0 && (
-          <div className="rounded-xl border border-dashed border-neutral-300 px-4 py-6 text-center text-xs text-neutral-500 dark:border-neutral-700">
-            단계가 없습니다. 아래 "+ 단계 추가" 로 시작하세요.
-          </div>
-        )}
-        {current.stages.map((s, i) =>
-          editingIdx === i ? (
+      <section className="space-y-0">
+        {/* 맨 위 + 버튼 / 인라인 에디터 */}
+        <InsertSlot
+          active={insertAt === 0}
+          onOpen={() => {
+            setInsertAt(0);
+            setEditingIdx(null);
+          }}
+        >
+          {insertAt === 0 && (
             <StageEditor
-              key={i}
               timeMode="offset"
               initial={{
-                id: `${current.id}-${i}`,
-                time: s.time,
-                offsetMinutes: s.offsetMinutes ?? 0,
-                title: s.title,
-                category: s.category,
-                detail: s.detail,
+                ...EMPTY_STAGE,
+                offsetMinutes: defaultOffsetForInsert(0),
+                category: defaultCategoryForInsert(0),
+                id: `insert-0-${current.id}`,
               }}
-              onSave={(patch) => onUpdate(i, patch)}
-              onCancel={() => setEditingIdx(null)}
+              submitLabel="추가"
+              onSave={(s) => onInsert(0, s)}
+              onCancel={() => setInsertAt(null)}
             />
-          ) : (
-            <TemplateStageRow
-              key={i}
-              stage={s}
-              index={i}
-              isFirst={i === 0}
-              isLast={i === current.stages.length - 1}
-              onEdit={() => setEditingIdx(i)}
-              onDelete={() => onDelete(i)}
-              onMoveUp={() => onMove(i, "up")}
-              onMoveDown={() => onMove(i, "down")}
-            />
-          )
-        )}
-      </section>
+          )}
+        </InsertSlot>
 
-      <section>
-        {adding ? (
-          <StageEditor
-            timeMode="offset"
-            initial={{
-              ...EMPTY_STAGE,
-              id: `new-${current.id}`,
-            }}
-            submitLabel="추가"
-            onSave={(s) => onAdd(s)}
-            onCancel={() => setAdding(false)}
-          />
-        ) : (
-          <button
-            type="button"
-            onClick={() => setAdding(true)}
-            className="w-full rounded-xl border border-dashed border-neutral-300 px-4 py-3 text-sm font-medium text-neutral-600 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-900"
-          >
-            + 단계 추가
-          </button>
+        {current.stages.length === 0 && insertAt !== 0 && (
+          <div className="rounded-xl border border-dashed border-neutral-300 px-4 py-6 text-center text-xs text-neutral-500 dark:border-neutral-700">
+            단계가 없습니다. 위의 <strong>+</strong> 버튼으로 첫 단계를 추가하세요.
+          </div>
         )}
+
+        {current.stages.map((s, i) => (
+          <div key={i}>
+            {editingIdx === i ? (
+              <StageEditor
+                timeMode="offset"
+                initial={{
+                  id: `edit-${current.id}-${i}`,
+                  time: s.time,
+                  offsetMinutes: s.offsetMinutes ?? 0,
+                  title: s.title,
+                  category: s.category,
+                  detail: s.detail,
+                }}
+                onSave={(patch) => onUpdate(i, patch)}
+                onCancel={() => setEditingIdx(null)}
+              />
+            ) : (
+              <TemplateStageRow
+                stage={s}
+                index={i}
+                isFirst={i === 0}
+                isLast={i === current.stages.length - 1}
+                onEdit={() => {
+                  setEditingIdx(i);
+                  setInsertAt(null);
+                }}
+                onDelete={() => onDelete(i)}
+                onMoveUp={() => onMove(i, "up")}
+                onMoveDown={() => onMove(i, "down")}
+              />
+            )}
+
+            <InsertSlot
+              active={insertAt === i + 1}
+              onOpen={() => {
+                setInsertAt(i + 1);
+                setEditingIdx(null);
+              }}
+            >
+              {insertAt === i + 1 && (
+                <StageEditor
+                  timeMode="offset"
+                  initial={{
+                    ...EMPTY_STAGE,
+                    offsetMinutes: defaultOffsetForInsert(i + 1),
+                    category: defaultCategoryForInsert(i + 1),
+                    id: `insert-${i + 1}-${current.id}`,
+                  }}
+                  submitLabel="추가"
+                  onSave={(s) => onInsert(i + 1, s)}
+                  onCancel={() => setInsertAt(null)}
+                />
+              )}
+            </InsertSlot>
+          </div>
+        ))}
       </section>
 
       {renameOpen && (
@@ -226,6 +270,34 @@ export function TemplateEditor({ template, onClose }: Props) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+interface InsertSlotProps {
+  active: boolean;
+  onOpen: () => void;
+  children?: React.ReactNode;
+}
+
+function InsertSlot({ active, onOpen, children }: InsertSlotProps) {
+  if (active) {
+    return <div className="my-2">{children}</div>;
+  }
+  return (
+    <div className="group relative h-3 hover:h-7 transition-[height]">
+      <span
+        aria-hidden
+        className="pointer-events-none absolute left-0 right-0 top-1/2 h-px -translate-y-1/2 bg-transparent group-hover:bg-neutral-300 dark:group-hover:bg-neutral-700"
+      />
+      <button
+        type="button"
+        onClick={onOpen}
+        aria-label="이 위치에 단계 추가"
+        className="absolute left-1/2 top-1/2 inline-flex h-5 w-5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-neutral-300 bg-white text-[11px] font-bold text-neutral-500 opacity-0 transition group-hover:opacity-100 hover:bg-neutral-900 hover:text-white dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400 dark:hover:bg-white dark:hover:text-neutral-900"
+      >
+        +
+      </button>
     </div>
   );
 }
