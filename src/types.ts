@@ -29,7 +29,12 @@ export interface SubStep {
 
 export interface Stage {
   id: string;
-  time: string; // "HH:mm"
+  time: string; // "HH:mm" — 절대 시각 (구버전 호환, 빈 문자열 가능)
+  /**
+   * 시공 시작 후 누적 분 (선택). 신규 템플릿은 이 값을 사용.
+   * 절대 시각으로 보고 싶을 땐 startTime + offsetMinutes 로 표시.
+   */
+  offsetMinutes?: number;
   title: string;
   detail: string;
   category: Category;
@@ -112,5 +117,6 @@ export type TabKey =
   | "messages"
   | "checklist"
   | "assets"
+  | "templates"
   | "users";
 export type TimelineMode = TemplateMode;

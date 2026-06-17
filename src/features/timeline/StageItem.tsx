@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { CategoryDot, CategoryTag } from "../../components/CategoryDot";
 import { useAppStore } from "../../store/useAppStore";
+import { displayStageTime } from "../../lib/timeOffset";
 import type { Stage, TemplateMode } from "../../types";
 import { StageEditor } from "./StageEditor";
 import { SubstepList } from "./SubstepList";
@@ -112,11 +113,12 @@ export function StageItem({
 
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              {stage.time && (
-                <span className="font-mono text-sm font-semibold tabular-nums">
-                  {stage.time}
-                </span>
-              )}
+              {(() => {
+                const t = displayStageTime(stage);
+                return t ? (
+                  <span className="font-mono text-sm font-semibold tabular-nums">{t}</span>
+                ) : null;
+              })()}
               <CategoryDot category={stage.category} />
               <span
                 className={[

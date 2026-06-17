@@ -12,6 +12,7 @@ import { AssetsTab } from "./features/assets/AssetsTab";
 import { EventsTab } from "./features/events/EventsTab";
 import { ChatTab } from "./features/chat/ChatTab";
 import { UsersTab } from "./features/admin/UsersTab";
+import { TemplatesTab } from "./features/timeline/TemplatesTab";
 import { LoginScreen } from "./features/auth/LoginScreen";
 import { PendingScreen } from "./features/auth/PendingScreen";
 
@@ -49,6 +50,7 @@ function Shell() {
         {tab === "checklist" &&
           (hasJob ? <ChecklistTab /> : <EmptyHint onGo={() => setTab("jobs")} />)}
         {tab === "assets" && <AssetsTab />}
+        {tab === "templates" && isAdmin && <TemplatesTab />}
         {tab === "users" && isAdmin && <UsersTab />}
       </main>
       <TabNav current={tab} onChange={setTab} disabled={disabled} isAdmin={isAdmin} />

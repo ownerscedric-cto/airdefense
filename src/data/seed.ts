@@ -1,3 +1,4 @@
+import { deriveOffsetsFromAbsolute } from "../lib/timeOffset";
 import type {
   Category,
   ChecklistState,
@@ -6,6 +7,16 @@ import type {
 } from "../types";
 
 type TplStage = TimelineTemplate["stages"][number];
+
+// 절대 시각(time)만 채워둔 stages 배열을, offsetMinutes 가 자동 보강된 배열로 변환.
+// 빌트인 템플릿을 그대로 두면서도 새 포맷을 지원하기 위한 변환.
+function withOffsets(stages: TplStage[]): TplStage[] {
+  const offsets = deriveOffsetsFromAbsolute(stages.map((s) => s.time));
+  return stages.map((s, i) => {
+    const off = offsets[i];
+    return off == null ? s : { ...s, offsetMinutes: off };
+  });
+}
 
 const noSubs: TplStage["substeps"] = [];
 
@@ -578,7 +589,7 @@ export const DEFAULT_CLIENT_TEMPLATE: TimelineTemplate = {
   id: "builtin-client-default",
   name: "고객용 기본 12단계",
   mode: "client",
-  stages: DEFAULT_CLIENT_STAGES,
+  stages: withOffsets(DEFAULT_CLIENT_STAGES),
   createdAt: 0,
   builtin: true,
 };
@@ -587,7 +598,7 @@ export const SITE_34PY_TEMPLATE: TimelineTemplate = {
   id: "builtin-site-34py",
   name: "현장용 — 34평 표준 동선",
   mode: "site",
-  stages: SITE_34PY_STAGES,
+  stages: withOffsets(SITE_34PY_STAGES),
   createdAt: 0,
   builtin: true,
 };
@@ -596,7 +607,7 @@ export const DEFAULT_SITE_TEMPLATE: TimelineTemplate = {
   id: "builtin-site-default",
   name: "현장용 기본 동선",
   mode: "site",
-  stages: DEFAULT_SITE_STAGES,
+  stages: withOffsets(DEFAULT_SITE_STAGES),
   createdAt: 0,
   builtin: true,
 };

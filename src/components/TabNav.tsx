@@ -15,6 +15,7 @@ const TABS: Tab[] = [
   { key: "messages", label: "멘트", icon: "📨" },
   { key: "checklist", label: "체크", icon: "✅" },
   { key: "assets", label: "이미지", icon: "🖼" },
+  { key: "templates", label: "템플릿", icon: "📑", adminOnly: true },
   { key: "users", label: "관리", icon: "👥", adminOnly: true },
 ];
 

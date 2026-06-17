@@ -171,7 +171,29 @@ type Action =
   | { type: "DEFAULT_ATTACHMENT_ADD"; messageKey: string; assetId: string }
   | { type: "DEFAULT_ATTACHMENT_REMOVE"; messageKey: string; assetId: string }
   | { type: "MESSAGE_OVERRIDE_SET"; jobId: string; messageKey: string; text: string }
-  | { type: "MESSAGE_OVERRIDE_CLEAR"; jobId: string; messageKey: string };
+  | { type: "MESSAGE_OVERRIDE_CLEAR"; jobId: string; messageKey: string }
+  // ───── 작업 독립 — 타임라인 템플릿 자체를 자유 편집 (admin 용) ─────
+  | { type: "TEMPLATE_CREATE"; name: string; mode: TemplateMode }
+  | { type: "TEMPLATE_DUPLICATE"; sourceId: string; newName: string }
+  | { type: "TEMPLATE_RENAME"; id: string; name: string }
+  | {
+      type: "TEMPLATE_STAGE_ADD";
+      templateId: string;
+      stage: TimelineTemplate["stages"][number];
+    }
+  | {
+      type: "TEMPLATE_STAGE_UPDATE";
+      templateId: string;
+      index: number;
+      patch: Partial<TimelineTemplate["stages"][number]>;
+    }
+  | { type: "TEMPLATE_STAGE_DELETE"; templateId: string; index: number }
+  | {
+      type: "TEMPLATE_STAGE_MOVE";
+      templateId: string;
+      index: number;
+      dir: "up" | "down";
+    };
 
 function updateJob(
   state: AppState,
@@ -612,6 +634,93 @@ function reducer(state: AppState, action: Action): AppState {
         delete map[action.messageKey];
         return { ...j, messageOverrides: map };
       });
+
+    case "TEMPLATE_CREATE": {
+      const tpl: TimelineTemplate = {
+        id: uid("tpl"),
+        name: action.name.trim() || "이름 없음",
+        mode: action.mode,
+        stages: [],
+        createdAt: Date.now(),
+      };
+      return { ...state, templates: [...state.templates, tpl] };
+    }
+
+    case "TEMPLATE_DUPLICATE": {
+      const src = state.templates.find((t) => t.id === action.sourceId);
+      if (!src) return state;
+      const tpl: TimelineTemplate = {
+        id: uid("tpl"),
+        name: action.newName.trim() || `${src.name} (복제)`,
+        mode: src.mode,
+        // builtin 표시는 떼고, stages 는 깊은 복사
+        stages: src.stages.map((s) => ({
+          ...s,
+          substeps: (s.substeps ?? []).map((sub) => ({ ...sub })),
+        })),
+        createdAt: Date.now(),
+      };
+      return { ...state, templates: [...state.templates, tpl] };
+    }
+
+    case "TEMPLATE_RENAME":
+      return {
+        ...state,
+        templates: state.templates.map((t) =>
+          t.id === action.id && !t.builtin
+            ? { ...t, name: action.name.trim() || t.name }
+            : t
+        ),
+      };
+
+    case "TEMPLATE_STAGE_ADD":
+      return {
+        ...state,
+        templates: state.templates.map((t) =>
+          t.id === action.templateId && !t.builtin
+            ? { ...t, stages: [...t.stages, action.stage] }
+            : t
+        ),
+      };
+
+    case "TEMPLATE_STAGE_UPDATE":
+      return {
+        ...state,
+        templates: state.templates.map((t) => {
+          if (t.id !== action.templateId || t.builtin) return t;
+          const next = t.stages.slice();
+          if (action.index < 0 || action.index >= next.length) return t;
+          next[action.index] = { ...next[action.index], ...action.patch };
+          return { ...t, stages: next };
+        }),
+      };
+
+    case "TEMPLATE_STAGE_DELETE":
+      return {
+        ...state,
+        templates: state.templates.map((t) => {
+          if (t.id !== action.templateId || t.builtin) return t;
+          if (action.index < 0 || action.index >= t.stages.length) return t;
+          return {
+            ...t,
+            stages: t.stages.filter((_, i) => i !== action.index),
+          };
+        }),
+      };
+
+    case "TEMPLATE_STAGE_MOVE":
+      return {
+        ...state,
+        templates: state.templates.map((t) => {
+          if (t.id !== action.templateId || t.builtin) return t;
+          const next = t.stages.slice();
+          const i = action.index;
+          const j = action.dir === "up" ? i - 1 : i + 1;
+          if (i < 0 || i >= next.length || j < 0 || j >= next.length) return t;
+          [next[i], next[j]] = [next[j], next[i]];
+          return { ...t, stages: next };
+        }),
+      };
 
     default:
       return state;
