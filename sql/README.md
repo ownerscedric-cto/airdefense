@@ -10,6 +10,8 @@ Supabase 데이터베이스 스키마 / 함수 / 정책 정의.
 2. `0002_functions.sql` — 배분 로직 함수와 트리거
 3. `0003_rls.sql` — Row Level Security 정책
 4. `0004_seed.sql` — 초기 데이터 (서비스 종류 등) + admin 부트스트랩 가이드
+5. `0005_sheet_sync.sql` — 구글 시트 → events 동기화 지원
+   - 추가 셋업은 `supabase/functions/README.md` 참고
 
 각 파일은 **idempotent**(여러 번 실행해도 같은 결과) 하게 작성되어 있다 — `IF NOT EXISTS` / `DROP ... IF EXISTS` 사용. 그래서 스키마 수정 시 해당 파일만 다시 실행하면 된다.
 
