@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useToast } from "../../components/Toast";
 import { useAppStore } from "../../store/useAppStore";
 import { AssetPickerModal } from "../assets/AssetPickerModal";
-import { getAssetsByIds, type Asset } from "../../lib/assets";
+import { getAnyAssetsByIds, type AnyAsset } from "../../lib/anyAsset";
 
 interface Props {
   messageKey: string;
@@ -13,7 +13,7 @@ interface Props {
 export function AttachmentSlot({ messageKey, attachmentIds, onAttachmentsChange }: Props) {
   const { state, currentJob, dispatch } = useAppStore();
   const { show } = useToast();
-  const [assets, setAssets] = useState<Asset[]>([]);
+  const [assets, setAssets] = useState<AnyAsset[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
 
   const defaultIds = new Set(state.defaultAttachments?.[messageKey] ?? []);
@@ -24,7 +24,7 @@ export function AttachmentSlot({ messageKey, attachmentIds, onAttachmentsChange 
       setAssets([]);
       return;
     }
-    getAssetsByIds(attachmentIds)
+    getAnyAssetsByIds(attachmentIds)
       .then((list) => {
         if (mounted) setAssets(list);
       })
@@ -36,7 +36,7 @@ export function AttachmentSlot({ messageKey, attachmentIds, onAttachmentsChange 
     };
   }, [attachmentIds]);
 
-  function onAdd(asset: Asset) {
+  function onAdd(asset: AnyAsset) {
     if (!currentJob) return;
     dispatch({
       type: "ATTACHMENT_ADD",
@@ -48,7 +48,7 @@ export function AttachmentSlot({ messageKey, attachmentIds, onAttachmentsChange 
     onAttachmentsChange?.();
   }
 
-  function onRemove(asset: Asset) {
+  function onRemove(asset: AnyAsset) {
     if (!currentJob) return;
     dispatch({
       type: "ATTACHMENT_REMOVE",
@@ -58,7 +58,7 @@ export function AttachmentSlot({ messageKey, attachmentIds, onAttachmentsChange 
     });
   }
 
-  function toggleDefault(asset: Asset) {
+  function toggleDefault(asset: AnyAsset) {
     if (asset.kind !== "common") {
       show("공통 이미지만 기본 첨부 가능");
       return;
@@ -101,7 +101,24 @@ export function AttachmentSlot({ messageKey, attachmentIds, onAttachmentsChange 
               key={a.id}
               className="group relative h-14 w-14 overflow-hidden rounded-lg border border-neutral-200 dark:border-neutral-700"
             >
-              <img src={a.thumbDataUrl} alt={a.name} className="h-full w-full object-cover" />
+              {a.thumbDataUrl ? (
+                <img src={a.thumbDataUrl} alt={a.name} className="h-full w-full object-cover" />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center bg-neutral-100 text-lg text-neutral-400 dark:bg-neutral-800">
+                  🖼
+                </div>
+              )}
+              <span
+                className={[
+                  "absolute bottom-0 left-0 rounded-tr-md px-1 text-[8px] font-semibold",
+                  a.source === "cloud"
+                    ? "bg-sky-500/80 text-white"
+                    : "bg-neutral-700/80 text-white",
+                ].join(" ")}
+                title={a.source === "cloud" ? "팀 공유" : "내 기기"}
+              >
+                {a.source === "cloud" ? "☁" : "💾"}
+              </span>
               {isCommon && (
                 <button
                   type="button"

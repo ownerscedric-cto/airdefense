@@ -1,16 +1,19 @@
 import { useMemo, useRef, useState } from "react";
 import { useToast } from "../../components/Toast";
 import { useAppStore } from "../../store/useAppStore";
-import type { Asset, AssetKind } from "../../lib/assets";
-import { useAssets } from "./useAssets";
+import { useAuth } from "../../store/AuthProvider";
+import type { AssetKind } from "../../lib/assets";
+import type { AnyAsset } from "../../lib/anyAsset";
+import { useAssets, type AddAssetInput } from "./useAssets";
 
 type Filter = "all" | AssetKind;
+type Target = "local" | "cloud";
 
 interface Props {
   open: boolean;
   excludeIds?: string[];
   onClose: () => void;
-  onPick: (asset: Asset) => void;
+  onPick: (asset: AnyAsset) => void;
 }
 
 const FILTERS: Array<{ key: Filter; label: string }> = [
@@ -22,12 +25,16 @@ const FILTERS: Array<{ key: Filter; label: string }> = [
 export function AssetPickerModal({ open, excludeIds = [], onClose, onPick }: Props) {
   const { assets, loading, error, add } = useAssets();
   const { currentJob } = useAppStore();
+  const { role } = useAuth();
   const { show } = useToast();
   const fileInput = useRef<HTMLInputElement>(null);
   const [filter, setFilter] = useState<Filter>("all");
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [pendingKind, setPendingKind] = useState<AssetKind>("common");
   const [pendingName, setPendingName] = useState("");
+  const [pendingTarget, setPendingTarget] = useState<Target>("cloud");
+
+  const canUploadCloud = role === "admin" || role === "manager";
 
   const filtered = useMemo(() => {
     const ex = new Set(excludeIds);
@@ -53,17 +60,28 @@ export function AssetPickerModal({ open, excludeIds = [], onClose, onPick }: Pro
     setPendingFile(file);
     setPendingName(file.name.replace(/\.[^.]+$/, ""));
     setPendingKind("common");
+    setPendingTarget(canUploadCloud ? "cloud" : "local");
   }
 
   async function commitAdd() {
     if (!pendingFile) return;
     try {
-      await add({
-        kind: pendingKind,
-        name: pendingName,
-        file: pendingFile,
-        jobId: pendingKind === "shot" ? currentJob?.id : undefined,
-      });
+      const payload: AddAssetInput =
+        pendingTarget === "cloud"
+          ? {
+              target: "cloud",
+              file: pendingFile,
+              name: pendingName,
+              kind: pendingKind,
+            }
+          : {
+              target: "local",
+              file: pendingFile,
+              name: pendingName,
+              kind: pendingKind,
+              jobId: pendingKind === "shot" ? currentJob?.id : undefined,
+            };
+      await add(payload);
       show("등록됨");
       setPendingFile(null);
       setPendingName("");
@@ -150,13 +168,29 @@ export function AssetPickerModal({ open, excludeIds = [], onClose, onPick }: Pro
                     }}
                     className="block w-full overflow-hidden rounded-xl border border-neutral-200 bg-white text-left dark:border-neutral-800 dark:bg-neutral-900"
                   >
-                    <div className="aspect-square w-full bg-neutral-100 dark:bg-neutral-800">
-                      <img
-                        src={a.thumbDataUrl}
-                        alt={a.name}
-                        className="h-full w-full object-cover"
-                        loading="lazy"
-                      />
+                    <div className="relative aspect-square w-full bg-neutral-100 dark:bg-neutral-800">
+                      {a.thumbDataUrl ? (
+                        <img
+                          src={a.thumbDataUrl}
+                          alt={a.name}
+                          className="h-full w-full object-cover"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-2xl text-neutral-300">
+                          🖼
+                        </div>
+                      )}
+                      <span
+                        className={[
+                          "absolute left-0.5 top-0.5 rounded px-1 py-0.5 text-[9px] font-semibold",
+                          a.source === "cloud"
+                            ? "bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300"
+                            : "bg-neutral-200 text-neutral-700 dark:bg-neutral-700 dark:text-neutral-200",
+                        ].join(" ")}
+                      >
+                        {a.source === "cloud" ? "☁" : "💾"}
+                      </span>
                     </div>
                     <div className="flex items-center justify-between gap-1 p-1.5">
                       <span className="truncate text-[11px] font-medium">{a.name}</span>
@@ -215,11 +249,39 @@ export function AssetPickerModal({ open, excludeIds = [], onClose, onPick }: Pro
                       </button>
                     ))}
                   </div>
-                  {pendingKind === "shot" && !currentJob && (
-                    <p className="mt-1.5 text-[11px] text-red-600 dark:text-red-400">
-                      현장 이미지는 작업을 먼저 선택해야 합니다.
-                    </p>
-                  )}
+                </fieldset>
+                <fieldset>
+                  <legend className="text-xs font-medium text-neutral-600 dark:text-neutral-300">
+                    저장 위치
+                  </legend>
+                  <div className="mt-1 flex gap-2">
+                    <button
+                      type="button"
+                      disabled={!canUploadCloud}
+                      onClick={() => setPendingTarget("cloud")}
+                      className={[
+                        "flex-1 rounded-lg border px-3 py-2 text-sm transition",
+                        pendingTarget === "cloud"
+                          ? "border-neutral-900 bg-neutral-900 text-white dark:border-white dark:bg-white dark:text-neutral-900"
+                          : "border-neutral-300 text-neutral-700 dark:border-neutral-700 dark:text-neutral-200",
+                        !canUploadCloud ? "opacity-50" : "",
+                      ].join(" ")}
+                    >
+                      ☁ 팀 공유
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPendingTarget("local")}
+                      className={[
+                        "flex-1 rounded-lg border px-3 py-2 text-sm transition",
+                        pendingTarget === "local"
+                          ? "border-neutral-900 bg-neutral-900 text-white dark:border-white dark:bg-white dark:text-neutral-900"
+                          : "border-neutral-300 text-neutral-700 dark:border-neutral-700 dark:text-neutral-200",
+                      ].join(" ")}
+                    >
+                      💾 내 기기만
+                    </button>
+                  </div>
                 </fieldset>
               </div>
               <div className="mt-5 flex justify-end gap-2">
@@ -232,7 +294,7 @@ export function AssetPickerModal({ open, excludeIds = [], onClose, onPick }: Pro
                 </button>
                 <button
                   type="button"
-                  disabled={pendingKind === "shot" && !currentJob}
+                  disabled={pendingKind === "shot" && pendingTarget === "local" && !currentJob}
                   onClick={commitAdd}
                   className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-white dark:text-neutral-900"
                 >

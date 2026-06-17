@@ -2,34 +2,53 @@ import { useMemo, useRef, useState } from "react";
 import { useToast } from "../../components/Toast";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { useAppStore } from "../../store/useAppStore";
-import type { Asset, AssetKind } from "../../lib/assets";
-import { useAssets } from "./useAssets";
+import { useAuth, useIsApproved } from "../../store/AuthProvider";
+import type { AssetKind } from "../../lib/assets";
+import { migrateLocalToCloud, type AnyAsset } from "../../lib/anyAsset";
+import { useAssets, type AddAssetInput } from "./useAssets";
 
 type Filter = "all" | AssetKind;
+type SourceFilter = "all" | "local" | "cloud";
+type Target = "local" | "cloud";
 
-const FILTERS: Array<{ key: Filter; label: string }> = [
+const KIND_FILTERS: Array<{ key: Filter; label: string }> = [
   { key: "all", label: "전체" },
   { key: "common", label: "공통" },
   { key: "shot", label: "현장" },
 ];
 
+const SOURCE_FILTERS: Array<{ key: SourceFilter; label: string }> = [
+  { key: "all", label: "전부" },
+  { key: "cloud", label: "☁ 공유" },
+  { key: "local", label: "💾 내 기기" },
+];
+
 export function AssetsTab() {
-  const { assets, loading, error, add, remove, update } = useAssets();
-  const { currentJob } = useAppStore();
+  const { assets, loading, error, add, remove, update, refresh } = useAssets();
+  const { currentJob, dispatch } = useAppStore();
+  const { role } = useAuth();
+  const approved = useIsApproved();
   const { show } = useToast();
   const fileInput = useRef<HTMLInputElement>(null);
 
   const [filter, setFilter] = useState<Filter>("all");
+  const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [pendingKind, setPendingKind] = useState<AssetKind>("common");
   const [pendingName, setPendingName] = useState("");
-  const [confirmDelete, setConfirmDelete] = useState<Asset | null>(null);
+  const [pendingTarget, setPendingTarget] = useState<Target>("cloud");
+  const [confirmDelete, setConfirmDelete] = useState<AnyAsset | null>(null);
   const [renaming, setRenaming] = useState<{ id: string; value: string } | null>(null);
 
-  const filtered = useMemo(
-    () => (filter === "all" ? assets : assets.filter((a) => a.kind === filter)),
-    [assets, filter]
-  );
+  const canUploadCloud = approved && (role === "admin" || role === "manager");
+
+  const filtered = useMemo(() => {
+    return assets.filter((a) => {
+      if (filter !== "all" && a.kind !== filter) return false;
+      if (sourceFilter !== "all" && a.source !== sourceFilter) return false;
+      return true;
+    });
+  }, [assets, filter, sourceFilter]);
 
   function openPicker() {
     fileInput.current?.click();
@@ -46,17 +65,29 @@ export function AssetsTab() {
     setPendingFile(file);
     setPendingName(file.name.replace(/\.[^.]+$/, ""));
     setPendingKind("common");
+    setPendingTarget(canUploadCloud ? "cloud" : "local");
   }
 
   async function commitAdd() {
     if (!pendingFile) return;
     try {
-      await add({
-        kind: pendingKind,
-        name: pendingName,
-        file: pendingFile,
-        jobId: pendingKind === "shot" ? currentJob?.id : undefined,
-      });
+      const payload: AddAssetInput =
+        pendingTarget === "cloud"
+          ? {
+              target: "cloud",
+              file: pendingFile,
+              name: pendingName,
+              kind: pendingKind,
+              eventId: pendingKind === "shot" ? undefined : undefined,
+            }
+          : {
+              target: "local",
+              file: pendingFile,
+              name: pendingName,
+              kind: pendingKind,
+              jobId: pendingKind === "shot" ? currentJob?.id : undefined,
+            };
+      await add(payload);
       show("등록됨");
       setPendingFile(null);
       setPendingName("");
@@ -69,24 +100,51 @@ export function AssetsTab() {
 
   async function commitRename() {
     if (!renaming) return;
-    await update(renaming.id, { name: renaming.value });
-    setRenaming(null);
-    show("이름 변경됨");
+    try {
+      await update(renaming.id, { name: renaming.value });
+      setRenaming(null);
+      show("이름 변경됨");
+    } catch (err) {
+      console.error(err);
+      show(err instanceof Error ? err.message : "이름 변경 실패");
+    }
   }
 
-  async function toggleKind(asset: Asset) {
+  async function migrateToCloud(asset: AnyAsset) {
+    if (asset.source !== "local") return;
+    if (!canUploadCloud) {
+      show("팀 공유 권한이 없습니다 (관리자/팀장)");
+      return;
+    }
+    try {
+      const { oldId, newId } = await migrateLocalToCloud(asset);
+      dispatch({ type: "ATTACHMENT_REMAP_ID", oldId, newId });
+      await refresh();
+      show("팀 공유로 옮김");
+    } catch (err) {
+      console.error(err);
+      show(err instanceof Error ? err.message : "옮기기 실패");
+    }
+  }
+
+  async function toggleKind(asset: AnyAsset) {
     const next: AssetKind = asset.kind === "common" ? "shot" : "common";
-    await update(asset.id, {
-      kind: next,
-      jobId: next === "shot" ? currentJob?.id ?? asset.jobId : undefined,
-    });
+    try {
+      await update(asset.id, {
+        kind: next,
+        jobId: asset.source === "local" && next === "shot" ? currentJob?.id : null,
+      });
+    } catch (err) {
+      console.error(err);
+      show(err instanceof Error ? err.message : "변경 실패");
+    }
   }
 
   return (
     <div className="space-y-3 pb-4">
-      <header className="flex items-center justify-between gap-2">
-        <div className="flex gap-1">
-          {FILTERS.map((f) => (
+      <header className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap gap-1">
+          {KIND_FILTERS.map((f) => (
             <button
               key={f.key}
               type="button"
@@ -118,8 +176,27 @@ export function AssetsTab() {
         />
       </header>
 
+      <div className="flex flex-wrap gap-1">
+        {SOURCE_FILTERS.map((f) => (
+          <button
+            key={f.key}
+            type="button"
+            onClick={() => setSourceFilter(f.key)}
+            className={[
+              "rounded-full px-3 py-1 text-[11px] font-medium transition",
+              sourceFilter === f.key
+                ? "bg-neutral-700 text-white dark:bg-neutral-300 dark:text-neutral-900"
+                : "bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400",
+            ].join(" ")}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
       <p className="px-1 text-[11px] text-neutral-500 dark:text-neutral-400">
-        공통: 매 시공마다 재사용 / 현장: 현재 작업 ({currentJob?.customer || "선택 안 됨"}) 전용. 카드를 길게 누르면 이름을 바꾸거나 삭제할 수 있어요.
+        ☁ 공유: 모든 팀원이 함께 사용 (Supabase). 💾 내 기기: 본인 브라우저에만 저장.
+        공통 이미지는 ☁ 공유로 올리는 걸 권장해요.
       </p>
 
       {error && (
@@ -142,9 +219,11 @@ export function AssetsTab() {
             <AssetCard
               key={a.id}
               asset={a}
+              canMigrate={a.source === "local" && canUploadCloud}
               onRename={() => setRenaming({ id: a.id, value: a.name })}
               onDelete={() => setConfirmDelete(a)}
               onToggleKind={() => toggleKind(a)}
+              onMigrate={() => migrateToCloud(a)}
             />
           ))}
         </ul>
@@ -192,9 +271,42 @@ export function AssetsTab() {
                     </button>
                   ))}
                 </div>
-                {pendingKind === "shot" && !currentJob && (
-                  <p className="mt-1.5 text-[11px] text-red-600 dark:text-red-400">
-                    현장 이미지는 작업을 먼저 선택해야 합니다.
+              </fieldset>
+              <fieldset>
+                <legend className="text-xs font-medium text-neutral-600 dark:text-neutral-300">
+                  저장 위치
+                </legend>
+                <div className="mt-1 flex gap-2">
+                  <button
+                    type="button"
+                    disabled={!canUploadCloud}
+                    onClick={() => setPendingTarget("cloud")}
+                    className={[
+                      "flex-1 rounded-lg border px-3 py-2 text-sm transition",
+                      pendingTarget === "cloud"
+                        ? "border-neutral-900 bg-neutral-900 text-white dark:border-white dark:bg-white dark:text-neutral-900"
+                        : "border-neutral-300 text-neutral-700 dark:border-neutral-700 dark:text-neutral-200",
+                      !canUploadCloud ? "opacity-50" : "",
+                    ].join(" ")}
+                  >
+                    ☁ 팀 공유
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPendingTarget("local")}
+                    className={[
+                      "flex-1 rounded-lg border px-3 py-2 text-sm transition",
+                      pendingTarget === "local"
+                        ? "border-neutral-900 bg-neutral-900 text-white dark:border-white dark:bg-white dark:text-neutral-900"
+                        : "border-neutral-300 text-neutral-700 dark:border-neutral-700 dark:text-neutral-200",
+                    ].join(" ")}
+                  >
+                    💾 내 기기만
+                  </button>
+                </div>
+                {!canUploadCloud && (
+                  <p className="mt-1.5 text-[11px] text-neutral-500">
+                    팀 공유는 관리자/팀장만 업로드 가능.
                   </p>
                 )}
               </fieldset>
@@ -209,7 +321,7 @@ export function AssetsTab() {
               </button>
               <button
                 type="button"
-                disabled={pendingKind === "shot" && !currentJob}
+                disabled={pendingKind === "shot" && pendingTarget === "local" && !currentJob}
                 onClick={commitAdd}
                 className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-white dark:text-neutral-900"
               >
@@ -260,14 +372,20 @@ export function AssetsTab() {
       <ConfirmDialog
         open={!!confirmDelete}
         title="이미지 삭제"
-        message={`"${confirmDelete?.name}" 을(를) 삭제할까요?`}
+        message={`"${confirmDelete?.name}" 을(를) 삭제할까요?${
+          confirmDelete?.source === "cloud" ? "\n공유 이미지는 모든 팀원에게서 사라집니다." : ""
+        }`}
         confirmLabel="삭제"
         danger
         onCancel={() => setConfirmDelete(null)}
         onConfirm={async () => {
           if (confirmDelete) {
-            await remove(confirmDelete.id);
-            show("삭제됨");
+            try {
+              await remove(confirmDelete.id);
+              show("삭제됨");
+            } catch (err) {
+              show(err instanceof Error ? err.message : "삭제 실패");
+            }
           }
           setConfirmDelete(null);
         }}
@@ -277,13 +395,15 @@ export function AssetsTab() {
 }
 
 interface CardProps {
-  asset: Asset;
+  asset: AnyAsset;
+  canMigrate: boolean;
   onRename: () => void;
   onDelete: () => void;
   onToggleKind: () => void;
+  onMigrate: () => void;
 }
 
-function AssetCard({ asset, onRename, onDelete, onToggleKind }: CardProps) {
+function AssetCard({ asset, canMigrate, onRename, onDelete, onToggleKind, onMigrate }: CardProps) {
   const [menu, setMenu] = useState(false);
 
   return (
@@ -293,13 +413,29 @@ function AssetCard({ asset, onRename, onDelete, onToggleKind }: CardProps) {
         onClick={() => setMenu((m) => !m)}
         className="block w-full overflow-hidden rounded-xl border border-neutral-200 bg-white text-left dark:border-neutral-800 dark:bg-neutral-900"
       >
-        <div className="aspect-square w-full bg-neutral-100 dark:bg-neutral-800">
-          <img
-            src={asset.thumbDataUrl}
-            alt={asset.name}
-            className="h-full w-full object-cover"
-            loading="lazy"
-          />
+        <div className="relative aspect-square w-full bg-neutral-100 dark:bg-neutral-800">
+          {asset.thumbDataUrl ? (
+            <img
+              src={asset.thumbDataUrl}
+              alt={asset.name}
+              className="h-full w-full object-cover"
+              loading="lazy"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-3xl text-neutral-300">
+              🖼
+            </div>
+          )}
+          <span
+            className={[
+              "absolute left-1 top-1 rounded px-1 py-0.5 text-[9px] font-semibold",
+              asset.source === "cloud"
+                ? "bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300"
+                : "bg-neutral-200 text-neutral-700 dark:bg-neutral-700 dark:text-neutral-200",
+            ].join(" ")}
+          >
+            {asset.source === "cloud" ? "☁ 공유" : "💾 내 기기"}
+          </span>
         </div>
         <div className="flex items-center justify-between gap-1 p-2">
           <span className="truncate text-xs font-medium">{asset.name}</span>
@@ -340,6 +476,18 @@ function AssetCard({ asset, onRename, onDelete, onToggleKind }: CardProps) {
           >
             {asset.kind === "common" ? "현장으로 전환" : "공통으로 전환"}
           </button>
+          {canMigrate && (
+            <button
+              type="button"
+              onClick={() => {
+                onMigrate();
+                setMenu(false);
+              }}
+              className="block w-full rounded px-2 py-1.5 text-left text-sky-700 hover:bg-sky-50 dark:text-sky-300 dark:hover:bg-sky-950"
+            >
+              ☁ 팀 공유로 옮기기
+            </button>
+          )}
           <button
             type="button"
             onClick={() => {

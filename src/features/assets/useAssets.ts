@@ -1,37 +1,44 @@
 import { useCallback, useEffect, useState } from "react";
+import { createAsset, type CreateAssetInput as CreateLocalInput } from "../../lib/assets";
 import {
-  createAsset,
-  deleteAsset,
-  listAssets,
-  updateAssetMeta,
-  type Asset,
-  type CreateAssetInput,
-} from "../../lib/assets";
+  deleteAnyAsset,
+  encodeLocalId,
+  encodeCloudId,
+  listAllAssets,
+  parseAssetId,
+  updateAnyAssetMeta,
+  type AnyAsset,
+} from "../../lib/anyAsset";
+import { uploadCloudAsset, type UploadCloudAssetInput } from "../../lib/db/cloudAssets";
+
+export type AddAssetInput =
+  | ({ target: "local" } & CreateLocalInput)
+  | ({ target: "cloud" } & UploadCloudAssetInput);
 
 export function useAssets() {
-  const [assets, setAssets] = useState<Asset[]>([]);
+  const [assets, setAssets] = useState<AnyAsset[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     try {
-      const list = await listAssets();
+      const list = await listAllAssets();
       setAssets(list);
       setError(null);
     } catch (err) {
-      console.error("[assets] listAssets failed", err);
+      console.error("[useAssets.refresh] failed", err);
       setError(err instanceof Error ? err.message : "이미지 불러오기 실패");
     }
   }, []);
 
   useEffect(() => {
     let mounted = true;
-    listAssets()
+    listAllAssets()
       .then((list) => {
         if (mounted) setAssets(list);
       })
       .catch((err) => {
-        console.error("[assets] initial load failed", err);
+        console.error("[useAssets] initial load failed", err);
         if (mounted) setError(err instanceof Error ? err.message : "이미지 불러오기 실패");
       })
       .finally(() => {
@@ -42,28 +49,32 @@ export function useAssets() {
     };
   }, []);
 
+  /** target 에 따라 로컬 IndexedDB 또는 Supabase Storage 에 업로드 */
   const add = useCallback(
-    async (input: CreateAssetInput) => {
-      await createAsset(input);
+    async (input: AddAssetInput) => {
+      if (input.target === "local") {
+        const { target: _t, ...rest } = input;
+        await createAsset(rest);
+      } else {
+        const { target: _t, ...rest } = input;
+        await uploadCloudAsset(rest);
+      }
       await refresh();
     },
     [refresh]
   );
 
   const remove = useCallback(
-    async (id: string) => {
-      await deleteAsset(id);
+    async (encodedId: string) => {
+      await deleteAnyAsset(encodedId);
       await refresh();
     },
     [refresh]
   );
 
   const update = useCallback(
-    async (
-      id: string,
-      patch: Parameters<typeof updateAssetMeta>[1]
-    ) => {
-      await updateAssetMeta(id, patch);
+    async (encodedId: string, patch: Parameters<typeof updateAnyAssetMeta>[1]) => {
+      await updateAnyAssetMeta(encodedId, patch);
       await refresh();
     },
     [refresh]
@@ -71,3 +82,6 @@ export function useAssets() {
 
   return { assets, loading, error, add, remove, update, refresh };
 }
+
+// ID 인코딩 헬퍼 외부 export
+export { encodeCloudId, encodeLocalId, parseAssetId };

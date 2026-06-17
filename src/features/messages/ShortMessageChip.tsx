@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useToast } from "../../components/Toast";
 import { shareFiles, shareText } from "../../lib/share";
-import { assetToFile, getAssetsByIds } from "../../lib/assets";
+import { anyAssetToFile, getAnyAssetsByIds } from "../../lib/anyAsset";
 import { useAppStore } from "../../store/useAppStore";
 import { AttachmentSlot } from "./AttachmentSlot";
 import { MessageEditDialog } from "./MessageEditDialog";
@@ -43,8 +43,8 @@ export function ShortMessageChip({
   async function onShareImages() {
     if (!hasFiles) return;
     try {
-      const assets = await getAssetsByIds(attachmentIds);
-      const files = await Promise.all(assets.map((a) => assetToFile(a)));
+      const assets = await getAnyAssetsByIds(attachmentIds);
+      const files = await Promise.all(assets.map((a) => anyAssetToFile(a)));
       const result = await shareFiles(files);
       if (result === "shared") show("이미지 공유 시트 열림");
       else if (result === "failed") show("이미지 공유 실패");

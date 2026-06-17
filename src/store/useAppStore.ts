@@ -170,6 +170,7 @@ type Action =
   | { type: "ATTACHMENT_REMOVE"; jobId: string; messageKey: string; assetId: string }
   | { type: "DEFAULT_ATTACHMENT_ADD"; messageKey: string; assetId: string }
   | { type: "DEFAULT_ATTACHMENT_REMOVE"; messageKey: string; assetId: string }
+  | { type: "ATTACHMENT_REMAP_ID"; oldId: string; newId: string }
   | { type: "MESSAGE_OVERRIDE_SET"; jobId: string; messageKey: string; text: string }
   | { type: "MESSAGE_OVERRIDE_CLEAR"; jobId: string; messageKey: string }
   // ───── 작업 독립 — 타임라인 템플릿 자체를 자유 편집 (admin 용) ─────
@@ -623,6 +624,25 @@ function reducer(state: AppState, action: Action): AppState {
       if (next.length === 0) delete map[action.messageKey];
       else map[action.messageKey] = next;
       return { ...state, defaultAttachments: map };
+    }
+
+    case "ATTACHMENT_REMAP_ID": {
+      // 모든 작업의 messageAttachments + 전역 defaultAttachments 에서 oldId 를 newId 로 치환
+      const remapList = (arr: string[]) =>
+        arr.map((id) => (id === action.oldId ? action.newId : id));
+      const remapMap = (m: Record<string, string[]>) => {
+        const out: Record<string, string[]> = {};
+        for (const k of Object.keys(m)) out[k] = remapList(m[k]);
+        return out;
+      };
+      return {
+        ...state,
+        jobs: state.jobs.map((j) => ({
+          ...j,
+          messageAttachments: remapMap(j.messageAttachments ?? {}),
+        })),
+        defaultAttachments: remapMap(state.defaultAttachments ?? {}),
+      };
     }
 
     case "MESSAGE_OVERRIDE_SET":

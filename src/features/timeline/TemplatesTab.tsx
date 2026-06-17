@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useToast } from "../../components/Toast";
 import { useAppStore } from "../../store/useAppStore";
 import type { TemplateMode, TimelineTemplate } from "../../types";
@@ -24,6 +24,24 @@ export function TemplatesTab() {
 
   const [dupSource, setDupSource] = useState<TimelineTemplate | null>(null);
   const [dupName, setDupName] = useState("");
+
+  // 빌트인 편집 시: "복제 직전 스냅샷" + "출처 빌트인 id" 를 저장해두고,
+  // 다음 렌더에서 templates 가 늘어나면 추가된 사본을 자동으로 편집기에 열어준다.
+  const [pendingEditAfterDuplicate, setPendingEditAfterDuplicate] = useState<{
+    baseIds: Set<string>;
+    src: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!pendingEditAfterDuplicate) return;
+    const added = state.templates.find(
+      (t) => !pendingEditAfterDuplicate.baseIds.has(t.id)
+    );
+    if (added) {
+      setEditing(added);
+      setPendingEditAfterDuplicate(null);
+    }
+  }, [state.templates, pendingEditAfterDuplicate]);
 
   const filtered = useMemo(() => {
     const list = state.templates.slice().sort((a, b) => a.createdAt - b.createdAt);
@@ -54,6 +72,15 @@ export function TemplatesTab() {
     setDupSource(null);
     setDupName("");
     show("복제됨");
+  }
+
+  // 빌트인 편집: 복제 액션을 디스패치하면서 "이 시점 이후 새로 생기는 사본을 편집기로 열어라" 신호를 남김.
+  // useEffect 가 templates 변화를 감지해서 자동 진입.
+  function onEditBuiltin(src: TimelineTemplate) {
+    const n = `${src.name} (사본)`;
+    setPendingEditAfterDuplicate({ baseIds: new Set(state.templates.map((t) => t.id)), src: src.id });
+    dispatch({ type: "TEMPLATE_DUPLICATE", sourceId: src.id, newName: n });
+    show("사본이 만들어졌어요");
   }
 
   function onDelete(t: TimelineTemplate) {
@@ -97,7 +124,7 @@ export function TemplatesTab() {
       </header>
 
       <p className="px-1 text-[11px] text-neutral-500 dark:text-neutral-400">
-        🏷 기본(빌트인) 템플릿은 잠겨 있어요. 수정하려면 "복제" 후 사본을 편집하세요.
+        🏷 기본 템플릿의 "편집" 을 누르면 자동으로 사본을 만들어 편집 화면으로 들어갑니다. 원본은 보존돼요.
       </p>
 
       <ul className="space-y-2">
@@ -121,15 +148,14 @@ export function TemplatesTab() {
                 </p>
               </div>
               <div className="flex flex-shrink-0 gap-1">
-                {!t.builtin && (
-                  <button
-                    type="button"
-                    onClick={() => setEditing(t)}
-                    className="rounded-lg bg-neutral-900 px-2.5 py-1.5 text-xs font-medium text-white dark:bg-white dark:text-neutral-900"
-                  >
-                    편집
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => (t.builtin ? onEditBuiltin(t) : setEditing(t))}
+                  className="rounded-lg bg-neutral-900 px-2.5 py-1.5 text-xs font-medium text-white dark:bg-white dark:text-neutral-900"
+                  title={t.builtin ? "사본을 만들어서 편집합니다" : "편집"}
+                >
+                  {t.builtin ? "편집(사본)" : "편집"}
+                </button>
                 <button
                   type="button"
                   onClick={() => {
