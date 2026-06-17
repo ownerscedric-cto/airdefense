@@ -209,6 +209,14 @@ type Action =
       note?: string;
     }
   | {
+      type: "TEMPLATE_SUBSTEP_INSERT";
+      templateId: string;
+      stageIndex: number;
+      subIndex: number; // 이 위치에 끼워 넣음 (0 = 맨 위)
+      text: string;
+      note?: string;
+    }
+  | {
       type: "TEMPLATE_SUBSTEP_UPDATE";
       templateId: string;
       stageIndex: number;
@@ -801,6 +809,26 @@ function reducer(state: AppState, action: Action): AppState {
             note: action.note ?? "",
           };
           stages[si] = { ...stage, substeps: [...(stage.substeps ?? []), newSub] };
+          return { ...t, stages };
+        }),
+      };
+
+    case "TEMPLATE_SUBSTEP_INSERT":
+      return {
+        ...state,
+        templates: state.templates.map((t) => {
+          if (t.id !== action.templateId || t.builtin) return t;
+          const stages = t.stages.slice();
+          const si = action.stageIndex;
+          if (si < 0 || si >= stages.length) return t;
+          const stage = stages[si];
+          const subs = (stage.substeps ?? []).slice();
+          const clamped = Math.max(0, Math.min(action.subIndex, subs.length));
+          subs.splice(clamped, 0, {
+            text: action.text.trim() || "(이름 없음)",
+            note: action.note ?? "",
+          });
+          stages[si] = { ...stage, substeps: subs };
           return { ...t, stages };
         }),
       };
