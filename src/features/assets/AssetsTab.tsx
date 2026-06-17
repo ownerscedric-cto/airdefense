@@ -144,14 +144,14 @@ export function AssetsTab() {
     <div className="space-y-3 pb-4">
       <header className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap gap-1">
-          {KIND_FILTERS.map((f) => (
+          {SOURCE_FILTERS.map((f) => (
             <button
               key={f.key}
               type="button"
-              onClick={() => setFilter(f.key)}
+              onClick={() => setSourceFilter(f.key)}
               className={[
                 "rounded-full px-3 py-1 text-xs font-medium transition",
-                filter === f.key
+                sourceFilter === f.key
                   ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900"
                   : "bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200",
               ].join(" ")}
@@ -177,14 +177,14 @@ export function AssetsTab() {
       </header>
 
       <div className="flex flex-wrap gap-1">
-        {SOURCE_FILTERS.map((f) => (
+        {KIND_FILTERS.map((f) => (
           <button
             key={f.key}
             type="button"
-            onClick={() => setSourceFilter(f.key)}
+            onClick={() => setFilter(f.key)}
             className={[
               "rounded-full px-3 py-1 text-[11px] font-medium transition",
-              sourceFilter === f.key
+              filter === f.key
                 ? "bg-neutral-700 text-white dark:bg-neutral-300 dark:text-neutral-900"
                 : "bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400",
             ].join(" ")}
